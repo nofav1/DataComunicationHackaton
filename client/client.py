@@ -3,6 +3,7 @@ import socket
 import threading
 import struct
 import time
+import argparse
 
 MAGIC_COOKIE = 0xabcddcba
 OFFER_MSG_TYPE = 0x2
@@ -19,13 +20,21 @@ class Client:
 
     def listen_for_offers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            # Check if SO_REUSEPORT is available
+            try:
+                udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                print("SO_REUSEPORT is enabled.")
+            except AttributeError:
+                print("SO_REUSEPORT is not supported. Using SO_REUSEADDR instead.")
+                udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             udp_socket.bind(("", 13117))
             print("Client started, listening for offer requests...")
 
             while True:
                 try:
+                    print("check1")
                     data, addr = udp_socket.recvfrom(BUFFER_SIZE)
+                    print("check2")
                     if len(data) >= 7:
                         magic_cookie, msg_type, udp_port, tcp_port = struct.unpack('!IBHH', data[:9])
                         if magic_cookie == MAGIC_COOKIE and msg_type == OFFER_MSG_TYPE:
@@ -66,12 +75,22 @@ class Client:
         except Exception as e:
             print(f"Error in TCP transfer #{connection_id}: {e}")
 
+
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="Network Speed Test Client")
-    parser.add_argument("--file_size", type=int, required=True, help="File size for client in bytes")
-    parser.add_argument("--tcp_connections", type=int, required=True, help="Number of TCP connections for client")
+    print("Welcome to the Network Speed Test Client!")
+
+    # Prompt the user for file size
+    parser = argparse.ArgumentParser(description="A script to handle file size and TCP connections.")
+    parser.add_argument('--file_size', required=True, type=int, help="Size of the file in MB.")
+    parser.add_argument('--tcp_connections', required=True, type=int, help="Number of TCP connections.")
+
     args = parser.parse_args()
 
-    client = Client(args.file_size, args.tcp_connections, 0)
+    # Access the arguments
+    file_size = args.file_size
+    tcp_connections = args.tcp_connections
+
+    # Create and start the client with the user-provided parameters
+    client = Client(file_size, tcp_connections, 0)
     client.start()
+
